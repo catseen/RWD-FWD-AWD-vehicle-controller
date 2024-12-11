@@ -64,7 +64,7 @@ public class CarController : MonoBehaviour
     public bool useEffects = false;
     public ParticleSystem RLWParticleSystem;
     public ParticleSystem RRWParticleSystem;
-    [Space(10)]
+    //[Space(10)]
     public ParticleSystem FRWParticleSystem;
     public ParticleSystem FLWParticleSystem;
     [Space(10)]
@@ -83,7 +83,7 @@ public class CarController : MonoBehaviour
     float initialCarEngineSoundPitch;
 
     //DATA/VARIABLES
-    [HideInInspector] 
+    [SerializeField, HideInInspector]
     public CarDriveType carDriveType;
     [HideInInspector]
     public float carSpeed;
@@ -164,129 +164,101 @@ public class CarController : MonoBehaviour
                 Debug.LogWarning(ex);
             }
         }
-        else
-            canvas.enabled = false;
+        //else
+            //canvas.enabled = false;
     }
 
     void Update()
     {
+        // Скорость и локальная скорость
         carSpeed = (2 * Mathf.PI * frontLeftCollider.radius * frontLeftCollider.rpm * 60) / 1000;
         localVelocityX = transform.InverseTransformDirection(carRigidbody.linearVelocity).x;
         localVelocityZ = transform.InverseTransformDirection(carRigidbody.linearVelocity).z;
 
-        if (useTouchControls) {
-            if (throttlePTI.buttonPressed)
-            {
-                CancelInvoke("DecelerateCar");
-                deceleratingCar = false;
-                GoForward();
-            }
-            if (reversePTI.buttonPressed)
-            {
-                CancelInvoke("DecelerateCar");
-                deceleratingCar = false;
-                GoReverse();
-            }
-            if (turnLeftPTI.buttonPressed)
-            {
-                TurnLeft();
-            }
-            if (turnRightPTI.buttonPressed)
-            {
-                TurnRight();
-            }
-            if (handbrakePTI.buttonPressed)
-            {
-                CancelInvoke("DecelerateCar");
-                deceleratingCar = false;
-                Handbrake();
-            }
-            if (!handbrakePTI.buttonPressed)
-            {
-                RecoverTraction();
-            }
-            if (!throttlePTI.buttonPressed && !reversePTI.buttonPressed)
-            {
-                ThrottleOff();
-            }
-            if ((!reversePTI.buttonPressed && !throttlePTI.buttonPressed) && !handbrakePTI.buttonPressed && !deceleratingCar)
-            {
-                InvokeRepeating("DecelerateCar", 0f, 0.1f);
-                deceleratingCar = true;
-            }
-            if (!turnLeftPTI.buttonPressed && !turnRightPTI.buttonPressed && steeringAxis != 0f)
-            {
-                ResetSteeringAngle();
-            }
-        }
-        if (carEngineSound != null)
+        // Определяем управление
+        bool throttle = useTouchControls ? throttlePTI.buttonPressed : Input.GetKey(KeyCode.W);
+        bool reverse = useTouchControls ? reversePTI.buttonPressed : Input.GetKey(KeyCode.S);
+        bool turnLeft = useTouchControls ? turnLeftPTI.buttonPressed : Input.GetKey(KeyCode.A);
+        bool turnRight = useTouchControls ? turnRightPTI.buttonPressed : Input.GetKey(KeyCode.D);
+        bool handbrake = useTouchControls ? handbrakePTI.buttonPressed : Input.GetKey(KeyCode.Space);
+        bool handbrakeReleased = useTouchControls ? !handbrakePTI.buttonPressed : Input.GetKeyUp(KeyCode.Space);
+
+        // Управление движением
+        if (throttle || reverse || handbrake)
         {
-            initialCarEngineSoundPitch = carEngineSound.pitch;
+            CancelInvoke("DecelerateCar");
+            deceleratingCar = false;
         }
+
+        // Сброс газа
+        ThrottleOff();
+
+        if (throttle)
+        {
+            GoForward();
+        }
+        else if (reverse)
+        {
+            GoReverse();
+        }
+
+        if (turnLeft)
+        {
+            TurnLeft();
+        }
+        else if (turnRight)
+        {
+            TurnRight();
+        }
+        else if (steeringAxis != 0f)
+        {
+            ResetSteeringAngle();
+        }
+
+        if (handbrake)
+        {
+            Handbrake();
+        }
+        else if (handbrakeReleased)
+        {
+            RecoverTraction();
+        }
+
+        // Замедление
+        bool noInput = !throttle && !reverse && !handbrake;
+        if (noInput && !deceleratingCar)
+        {
+            InvokeRepeating("DecelerateCar", 0f, 0.1f);
+            deceleratingCar = true;
+        }
+
+        // Звук
         if (useSounds)
         {
+            if (carEngineSound != null)
+            {
+                initialCarEngineSoundPitch = carEngineSound.pitch;
+            }
+
             InvokeRepeating("CarSounds", 0f, 0.1f);
         }
-        else if (!useSounds)
+        else
         {
-            carEngineSound?.Stop();
-            tireScreechSound?.Stop();
+            if (carEngineSound != null) carEngineSound.Stop();
+            if (tireScreechSound != null) tireScreechSound.Stop();
         }
+
+
+        // Эффекты
         if (!useEffects)
         {
             RLWParticleSystem?.Stop();
             RRWParticleSystem?.Stop();
-
             if (RLWTireSkid != null) RLWTireSkid.emitting = false;
             if (RRWTireSkid != null) RRWTireSkid.emitting = false;
         }
-        else
-        {
-            if (Input.GetKey(KeyCode.W))
-            {
-                CancelInvoke("DecelerateCar");
-                deceleratingCar = false;
-                GoForward();
-            }
-            if (Input.GetKey(KeyCode.S))
-            {
-                CancelInvoke("DecelerateCar");
-                deceleratingCar = false;
-                GoReverse();
-            }
 
-            if (Input.GetKey(KeyCode.A))
-            {
-                TurnLeft();
-            }
-            if (Input.GetKey(KeyCode.D))
-            {
-                TurnRight();
-            }
-            if (Input.GetKey(KeyCode.Space))
-            {
-                CancelInvoke("DecelerateCar");
-                deceleratingCar = false;
-                Handbrake();
-            }
-            if (Input.GetKeyUp(KeyCode.Space))
-            {
-                RecoverTraction();
-            }
-            if ((!Input.GetKey(KeyCode.S) && !Input.GetKey(KeyCode.W)))
-            {
-                ThrottleOff();
-            }
-            if ((!Input.GetKey(KeyCode.S) && !Input.GetKey(KeyCode.W)) && !Input.GetKey(KeyCode.Space) && !deceleratingCar)
-            {
-                InvokeRepeating("DecelerateCar", 0f, 0.1f);
-                deceleratingCar = true;
-            }
-            if (!Input.GetKey(KeyCode.A) && !Input.GetKey(KeyCode.D) && steeringAxis != 0f)
-            {
-                ResetSteeringAngle();
-            }
-        }
+        // Анимация колёс
         AnimateWheelMeshes();
     }
 
@@ -396,7 +368,7 @@ public class CarController : MonoBehaviour
                 frontRightCollider.brakeTorque = 0;
                 rearLeftCollider.brakeTorque = 0;
                 rearRightCollider.brakeTorque = 0;
-                float driveTorqueMultiplier = (carDriveType == CarDriveType.AllWheelDrive) ? 50f : 100f;
+                float driveTorqueMultiplier = (carDriveType == CarDriveType.AllWheelDrive) ? 50f : 250f;
                 float torque = accelerationMultiplier * driveTorqueMultiplier * throttleAxis;
 
                 switch (carDriveType)
@@ -458,8 +430,8 @@ public class CarController : MonoBehaviour
             {
                 float driveTorqueMultiplier = carDriveType switch
                 {
-                    CarDriveType.FrontWheelDrive => 100f,
-                    CarDriveType.RearWheelDrive => 100f,
+                    CarDriveType.FrontWheelDrive => 200f,
+                    CarDriveType.RearWheelDrive => 200f,
                     CarDriveType.AllWheelDrive => 50f,
                     _ => 50f
                 };
@@ -552,46 +524,43 @@ public class CarController : MonoBehaviour
 
     public void Handbrake()
     {
-        CancelInvoke("RecoverTraction");
+        // Отменяем восстановление сцепления
+        CancelInvoke(nameof(RecoverTraction));
 
-        driftingAxis = driftingAxis + (Time.deltaTime);
-        float secureStartingPoint = driftingAxis * FLWextremumSlip * handbrakeDriftMultiplier;
+        // Увеличиваем силу дрифта со временем
+        driftingAxis += Time.deltaTime * 2f; // Ускоренное накопление
+        driftingAxis = Mathf.Clamp(driftingAxis, 0.1f, 1f);
 
-        if (secureStartingPoint < FLWextremumSlip)
-        {
-            driftingAxis = FLWextremumSlip / (FLWextremumSlip * handbrakeDriftMultiplier);
-        }
-        if (driftingAxis > 1f)
-        {
-            driftingAxis = 1f;
-        }
+        // Определяем, достаточно ли боковой скорости для дрифта
+        isDrifting = Mathf.Abs(localVelocityX) > 2.5f;
 
-        if (Mathf.Abs(localVelocityX) > 2.5f)
-        {
-            isDrifting = true;
-        }
-        else
-        {
-            isDrifting = false;
-        }
+        // Применяем увеличенный extremumSlip для всех колёс
+        float slipFL = FLWextremumSlip * handbrakeDriftMultiplier * driftingAxis;
+        float slipFR = FRWextremumSlip * handbrakeDriftMultiplier * driftingAxis;
+        float slipRL = RLWextremumSlip * handbrakeDriftMultiplier * driftingAxis;
+        float slipRR = RRWextremumSlip * handbrakeDriftMultiplier * driftingAxis;
 
-        if (driftingAxis < 1f)
-        {
-            FLwheelFriction.extremumSlip = FLWextremumSlip * handbrakeDriftMultiplier * driftingAxis;
-            frontLeftCollider.sidewaysFriction = FLwheelFriction;
+        // Устанавливаем значения фрикции
+        FLwheelFriction.extremumSlip = slipFL;
+        frontLeftCollider.sidewaysFriction = FLwheelFriction;
 
-            FRwheelFriction.extremumSlip = FRWextremumSlip * handbrakeDriftMultiplier * driftingAxis;
-            frontRightCollider.sidewaysFriction = FRwheelFriction;
+        FRwheelFriction.extremumSlip = slipFR;
+        frontRightCollider.sidewaysFriction = FRwheelFriction;
 
-            RLwheelFriction.extremumSlip = RLWextremumSlip * handbrakeDriftMultiplier * driftingAxis;
-            rearLeftCollider.sidewaysFriction = RLwheelFriction;
+        RLwheelFriction.extremumSlip = slipRL;
+        rearLeftCollider.sidewaysFriction = RLwheelFriction;
 
-            RRwheelFriction.extremumSlip = RRWextremumSlip * handbrakeDriftMultiplier * driftingAxis;
-            rearRightCollider.sidewaysFriction = RRwheelFriction;
-        }
+        RRwheelFriction.extremumSlip = slipRR;
+        rearRightCollider.sidewaysFriction = RRwheelFriction;
 
+        // Флаг блокировки сцепления
         isTractionLocked = true;
+
+        // Визуальные эффекты дрифта
         DriftCarPS();
+
+        // Отладка
+        Debug.Log($"[Handbrake] driftingAxis: {driftingAxis:F2}, SlipFL: {slipFL:F2}, IsDrifting: {isDrifting}");
     }
 
     public void DriftCarPS()
